@@ -4,7 +4,6 @@ from scipy.spatial.transform import Rotation as R
 import numpy as np
 import pymavlink
 import time
-import numpy as np
 from threading import Thread
 
 class position:
