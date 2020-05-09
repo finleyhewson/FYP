@@ -26,7 +26,7 @@ STEER_CHANGE_COST = 5.0  # steer angle change penalty cost
 STEER_COST = 1.0  # steer angle change penalty cost
 H_COST = 5.0  # Heuristic cost
 
-show_animation = True
+show_animation = False
 
 
 class Node:
