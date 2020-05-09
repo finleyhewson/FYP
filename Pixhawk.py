@@ -25,6 +25,7 @@ import numpy as np
 #import transformations as tf
 import math as m
 import time
+import scipy.spatial
 import argparse
 import threading
 from time import sleep
@@ -211,7 +212,8 @@ class Pix:
     #######################################
     # Functions
     #######################################
-    def send_ned_velocity(self, velocity_x, velocity_y, velocity_z, duration):
+
+    def send_ned_position(self, xpath, ypath, zpath):
         """
         Move vehicle in direction based on specified velocity vectors.
         """
@@ -219,17 +221,14 @@ class Pix:
             0,       # time_boot_ms (not used)
             0, 0,    # target system, target component
             mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
-            0b0000111111000111, # type_mask (only speeds enabled)
-            0, 0, 0, # x, y, z positions (not used)
-            velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
+            0b0000111111111000, # type_mask (only speeds enabled)
+            xpath, ypath, zpath, # x, y, z positions 
+            0, 0, 0, # x, y, z velocity in m/s (not used)
             0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
             0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
-
-
-        # send command to vehicle on 1 Hz cycle
-        for x in range(0,duration):
-            self.vehicle.send_mavlink(msg)
-            time.sleep(1)
+        
+        # send command
+        self.vehicle.send_mavlink(msg)
 
 
     def condition_yaw(self, heading, relative=False):
@@ -268,15 +267,16 @@ class Pix:
     def send_vision_position_estimate_message(self, _pos, _r, current_time_us):
         global is_vehicle_connected
         with self.lock:
-            if self.is_vehicle_connected == True: #and self.H_aeroRef_aeroBody is not None:
+            if self.is_vehicle_connected == True:
+                rot_eul_angles = _r.as_euler('zyx', degrees=False)
                 msg = self.vehicle.message_factory.vision_position_estimate_encode(
                     current_time_us,                    # us Timestamp (UNIX time or time since system boot)
                     _pos[0],	        # Global X position
                     _pos[1],           # Global Y position
                     _pos[2],	        # Global Z position
-                    _r[0],	                        # Roll angle
-                    _r[1],	                        # Pitch angle
-                    _r[2]	                        # Yaw angle
+                    rot_eul_angles[2],	                        # Roll angle
+                    rot_eul_angles[1],	                        # Pitch angle
+                    rot_eul_angles[0]	                        # Yaw angle
                 )
                 self.vehicle.send_mavlink(msg)
                 self.vehicle.flush()
@@ -432,9 +432,9 @@ class Pix:
         global scale_factor
         while True:
             # Specical case: updating scale
-            if scale_calib_enable == True:
-                scale_factor = float(input("INFO: Type in new scale as float number\n"))
-                print("INFO: New scale is ", scale_factor)
+            #if scale_calib_enable == True:
+            #    scale_factor = float(input("INFO: Type in new scale as float number\n"))
+            #    print("INFO: New scale is ", scale_factor)
 
             if self.enable_auto_set_ekf_home:
                 self.send_msg_to_gcs('Set EKF home with default GPS location')

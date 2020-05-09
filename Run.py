@@ -2,6 +2,7 @@ import Point_Cloud as map
 import T265_Tracking_Camera as t265
 import D435_Depth_Camera as d435
 import Hybrid_Astar as planner
+import Motion
 import Pixhawk
 import Position
 import Arg_Parser
@@ -32,7 +33,6 @@ from dronekit import connect, VehicleMode, LocationGlobal, LocationGlobalRelativ
 from pymavlink import mavutil
 if __name__ == "__main__":
     print("*** STARTING ***")
-    #need a SITL version to test
 
     pixhawkObj = Pixhawk.Pix()
 
@@ -112,6 +112,7 @@ if __name__ == "__main__":
     d435Obj = d435.rs_d435(framerate=30, width=480, height=270)
     posObj = Position.position(pixhawkObj)
     mapObj = map.mapper()
+    motionObj = Motion.motion(pixhawkObj)
 
     #Schedules Mavlink Messages in the Background at predetermined frequencies
     sched = BackgroundScheduler()
@@ -121,22 +122,21 @@ if __name__ == "__main__":
 
 
     # A separate thread to monitor user input
-    user_keyboard_input_thread = threading.Thread(target=pixhawkObj.user_input_monitor(scale_calib_enable))
+    user_keyboard_input_thread = threading.Thread(target=pixhawkObj.user_input_monitor)
     user_keyboard_input_thread.daemon = True
     user_keyboard_input_thread.start()
 
     sched.start()
     print("INFO: Press Enter to set EKF home at default location")
 
-    # x, y, yaw
+    pixhawkObj.set_default_global_origin()
+    pixhawkObj.set_default_home_position()
+
+    # x, y, yaw, of the waypoints taken from global path planner
     waypoints = np.asarray([[0.0, 4.0, 90.0],
             [0.0, 0.0, 180.0]])
 
     s = 0 # used to create initial path planning loop
-    path_index = 0
-    xpath = []
-    ypath = []
-    yawpath = []
     with d435Obj:
         try:
           while True:
@@ -153,7 +153,7 @@ if __name__ == "__main__":
                 curr_goal = waypoints[iway]
                 curr_pos, _, _ = posObj.update()
 
-                remaining_distance = math.sqrt((curr_goal[0] - curr_pos[0])**2 + (curr_goal[1]- curr_pos[1])**2)
+                remaining_distance = math.sqrt((curr_goal[0] - curr_pos[0])**2 + (curr_goal[1] - curr_pos[1])**2)
                 close_enough = 0.1
 
                 while remaining_distance > close_enough: # some amount of distance away from the curr_position
@@ -217,21 +217,21 @@ if __name__ == "__main__":
                         start = [pos[0], pos[1], np.deg2rad(90.0 - yaw_angle[0])]
                         goal = [curr_goal[0], curr_goal[1], np.deg2rad(90.0 - curr_goal[2])] #90 faces to the top, 0 to the right, -90 towards the bottom
 
-                        if path_index == 0:
-                            path_index = path_index + 1
-                        else:
-                            if path_index - 1 >= len(xpath):
-                                break
-                            else:
-                                xvel = xpath[path_index - 1]
-                                yvel = ypath[path_index - 1]
-                                yaw_set = yawpath[path_index -1]
+                        #if path_index == 0:
+                        #    path_index = path_index + 1
+                        #else:
+                        #    if path_index - 1 >= len(xpath):
+                        #        break
+                        #    else:
+                        #        xvel = xpath[path_index - 1]
+                        #        yvel = ypath[path_index - 1]
+                        #        yaw_set = yawpath[path_index -1]
 
-                                #needs to be faster 0.1m every sec is slow as shit
-                                pixhawkObj.send_ned_velocity(xvel, yvel, 0 , 1)
-                                pixhawkObj.condition_yaw(yaw_set, relative = False)
+                        #        #needs to be faster 0.1m every sec is slow as shit
+                        #        pixhawkObj.send_ned_position(xvel, yvel, 0 , 1)
+                        #        pixhawkObj.condition_yaw(yaw_set, relative = False)
 
-                                path_index = path_index + 1
+                        #        path_index = path_index + 1
 
                         #initial path calculation loop
                         if s == 0:
@@ -245,7 +245,13 @@ if __name__ == "__main__":
                             ypath = path.ylist
                             yawpath = path.yawlist
                             directionpath = path.directionlist
-  
+
+                            #creating thread for motion
+                            motionObj.update(xpath, ypath, yawpath)
+                            motion_thread = threading.Thread(target=motionObj.loop)
+                            motion_thread.daemon = True
+                            motion_thread.start()
+
                             s=s+1
                             
                     
@@ -260,15 +266,22 @@ if __name__ == "__main__":
                             #runs through the initial path x and y values and creates a new path if they're within range of an obstacle 
                             for ind in range(len(path.xlist)): 
                                 if obmap[int(round((path.xlist[ind]/planner.XY_GRID_RESOLUTION) - minx))][int(round((path.ylist[ind]/planner.XY_GRID_RESOLUTION) - miny))]:
-                                    #generate a new path
+                                    
+                                    # send command to the pixhawk to stop moving and wait for new path to be calculated
+                                    motionObj.recalc(recalc_path = True)
+
+                                    # plan a new path
                                     path = planner.hybrid_a_star_planning(start, goal, ox, oy, planner.XY_GRID_RESOLUTION, planner.YAW_GRID_RESOLUTION)
                                     
-                                    path_index = 1
                                     #list of x,y,yaw and direction of the new path
                                     xpath = path.xlist
                                     ypath = path.ylist
                                     yawpath = path.yawlist
                                     directionpath = path.directionlist
+
+                                    # update pixhawk of the directions of the new path
+                                    motionObj.update(xpath, ypath, yawpath)
+                                    MotionObj.recalc(recalc_path = False)
 
                                     break
                     except KeyboardInterrupt:
@@ -279,18 +292,9 @@ if __name__ == "__main__":
             pass
         
         finally:
-            pipe.stop()
+            motionObj.close()
+            d435Obj.closeConnection()
             pixhawkObj.vehicle.close()
             print("INFO: Realsense pipeline and vehicle object closed.")
             sys.exit()
-   
 
-
-    print("Set new home location to current location")
-    vehicle.home_location=vehicle.location.global_frame
-    print("Get new home location")
-    #This reloads the home location in DroneKit and GCSs
-    cmds = vehicle.commands
-    cmds.download()
-    cmds.wait_ready()
-    print(" Home Location: %s" % vehicle.home_location)
