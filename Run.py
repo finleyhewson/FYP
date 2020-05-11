@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import Point_Cloud as map
 import T265_Tracking_Camera as t265
 import D435_Depth_Camera as d435
