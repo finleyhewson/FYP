@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import Point_Cloud as map
 import T265_Tracking_Camera as t265
 import D435_Depth_Camera as d435
@@ -135,20 +136,12 @@ if __name__ == "__main__":
 
     # x, y, yaw, of the waypoints taken from global path planner
     waypoints = np.asarray([[0.0, 4.0, 90.0],
-            [0.0, 0.0, 180.0]])
+            [0.0, 0.0, -90.0]])
 
     s = 0 # used to create initial path planning loop
     with d435Obj:
         try:
           while True:
-            # Monitor last_heartbeat to reconnect in case of lost connection
-            if pixhawkObj.vehicle.last_heartbeat > pixhawkObj.connection_timeout_sec_default:
-                pixhawkObj.is_vehicle_connected = False
-                print("WARNING: CONNECTION LOST. Last hearbeat was %f sec ago."% pixhawkObj.vehicle.last_heartbeat)
-                print("WARNING: Attempting to reconnect ...")
-                pixhawkObj.vehicle_connect()
-                continue
-
             for iway in range(len(waypoints)):
 
                 curr_goal = waypoints[iway]
@@ -158,6 +151,15 @@ if __name__ == "__main__":
                 close_enough = 0.1
 
                 while remaining_distance > close_enough: # some amount of distance away from the curr_position
+
+                    # Monitor last_heartbeat to reconnect in case of lost connection
+                    if pixhawkObj.vehicle.last_heartbeat > pixhawkObj.connection_timeout_sec_default:
+                        pixhawkObj.is_vehicle_connected = False
+                        print("WARNING: CONNECTION LOST. Last hearbeat was %f sec ago."% pixhawkObj.vehicle.last_heartbeat)
+                        print("WARNING: Attempting to reconnect ...")
+                        pixhawkObj.vehicle_connect()
+                        continue
+
 
                     # Get frames of data - points and global 6dof
                     pos, r, conf = posObj.update()
@@ -282,7 +284,7 @@ if __name__ == "__main__":
 
                                     # update pixhawk of the directions of the new path
                                     motionObj.update(xpath, ypath, yawpath)
-                                    MotionObj.recalc(recalc_path = False)
+                                    motionObj.recalc(recalc_path = False)
 
                                     break
                     except KeyboardInterrupt:
