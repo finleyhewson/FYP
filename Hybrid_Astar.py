@@ -15,10 +15,10 @@ except:
 
 XY_GRID_RESOLUTION = 0.25  # [m]
 YAW_GRID_RESOLUTION = np.deg2rad(15.0)  # [rad]
-MOTION_RESOLUTION = 0.1  # [m] path interporate resolution
-N_STEER = 20.0  # number of steer command
+MOTION_RESOLUTION = 0.1  # [m] path interpolate resolution
+N_STEER = 20  # number of steer command, must be an int not float
 H_COST = 1.0
-VR = 0.2  # robot radius
+VR = 0.15  # robot radius
 
 SB_COST = 100.0  # switch back penalty cost
 BACK_COST = 10.0  # backward penalty cost
@@ -26,7 +26,7 @@ STEER_CHANGE_COST = 5.0  # steer angle change penalty cost
 STEER_COST = 1.0  # steer angle change penalty cost
 H_COST = 5.0  # Heuristic cost
 
-show_animation = False
+show_animation = True
 
 
 class Node:
@@ -123,7 +123,7 @@ class Config:
 
 def calc_motion_inputs():
 
-    for steer in np.concatenate((np.linspace(int(-MAX_STEER), int(MAX_STEER), int(N_STEER)),[0.0])):
+    for steer in np.concatenate((np.linspace(-MAX_STEER, MAX_STEER, N_STEER), [0.0])):
         for d in [1, -1]:
             yield [steer, d]
 
@@ -421,15 +421,16 @@ def main():
         try:
             while True: # while pos isn't within a certain distance of the goal position try this, 
                 #once it is input a new goal point, minus the previous goal point from current one to keep within radius
+                tik=time.perf_counter()          
 
                 # Get frames of data - points and global 6dof
-                tik=time.perf_counter()
                 pos, r, conf, _ = t265Obj.get_frame()
-
+                
                 frame, rgbImg = d435Obj.getFrame()
                 points = d435Obj.deproject_frame(frame)
                 mapObj.update(points, pos, r)
-
+                
+                
                 try:
                     
                     x = np.digitize(pos[0], mapObj.xBins) - 1
@@ -460,39 +461,71 @@ def main():
                     img = cv2.resize(img, (540, 540))
                     cv2.imshow('map', img)
                     cv2.waitKey(1)
-
+                    
                     #defining x and y coordinates of obstacles
                     ox, oy = [], []
+
+
 
                     for i in np.arange(-5,5,0.5):
                         ox.append(i)
                         oy.append(-5)
-                    for i in np.arange(-5,5,0.5):
+                    for i in np.arange(-5,8,0.5):
                         ox.append(5)
                         oy.append(i)
                     for i in np.arange(-5,5.5,0.5):
                         ox.append(i)
-                        oy.append(5)
-                    for i in np.arange(-5,5,0.5):
+                        oy.append(8)
+                    for i in np.arange(-5,8,0.5):
                         ox.append(-5)
                         oy.append(i)
+          
+                    #for i in np.arange(0,20,0.01):
+                    #    ox.append(i)
+                    #    oy.append(0.0)
+                    #for i in np.arange(0,6,0.01):
+                    #    ox.append(10.0)
+                    #    oy.append(i)
+                    #for i in np.arange(0,20,0.01):
+                    #    ox.append(i)
+                    #    oy.append(10.0)
+                    #for i in np.arange(0,11,0.01):
+                    #    ox.append(0.0)
+                    #    oy.append(i)
+                    #for i in np.arange(0,6,0.01):
+                    #    ox.append(3.0)
+                    #    oy.append(i)
+                    #for i in np.arange(0,6,0.01):
+                    #    ox.append(7.0)
+                    #    oy.append(10.0 - i)
+                    #for i in np.arange(0,4.5,0.01):
+                    #    ox.append(15.0)
+                    #    oy.append(10.0 - i)
+                    #for i in np.arange(0,4.5,0.01):
+                    #    ox.append(15.0)
+                    #    oy.append(i)
+                    #for i in np.arange(0,11,0.01):
+                    #    ox.append(20.0)
+                    #    oy.append(i)
                     
                     #grid needs to be scaled properly so that when it index's its doing it to the same 
                     #size grid as the one point cloud uses, use x,y bins for this
                     grid = cv2.transpose(grid)
                     for i in range(grid.shape[0]):
-                        for j in range(grid.shape[1]):
-                            if grid[i][j] > 0:
-                                ox.append(mapObj.xBins[i])
-                                oy.append(mapObj.yBins[j])
+                        if np.max(grid[i]) > 0.0:
+                            for j in range(grid.shape[1]):
+                                if grid[i][j] > 0:
+                                    ox.append(mapObj.xBins[i])
+                                    oy.append(mapObj.yBins[j])
 
                     # Should have North as 90 degrees
                     # Set Initial parameters, float
                     # Need to have a way of making the function still generate a path if the start is within range of an obstacle
                     yaw_angle = r.as_euler('zyx', degrees=True)
-
-                    start = [pos[0], pos[1], np.deg2rad(90.0 - yaw_angle[0])]#90 faces to the top, 0 to the right, -90 towards the bottom
-                    goal = [0.0, 3.0, np.deg2rad(90.0)]
+                   
+                    start = [pos[1], pos[0], np.deg2rad(90.0 - yaw_angle[0])]#90 faces to the top, 0 to the right, -90 towards the bottom
+                    #start = [1.0, 1.0, np.deg2rad(90.0)]
+                    goal = [0.0, 7.0, np.deg2rad(90.0)]
     
 
                     plt.plot(ox, oy, ".k")
@@ -532,28 +565,55 @@ def main():
                         oy1 = [ioy / XY_GRID_RESOLUTION for ioy in oy]
                         obmap, minx, miny, maxx, maxy, xw, yw = calc_obstacle_map(ox1, oy1, XY_GRID_RESOLUTION, VR)
 
+                        plt.cla()
+                        plt.plot(ox, oy, ".k")
+                        plt.plot(xpath, ypath, "-r", label="Hybrid A* path")
+                        plt.grid(True)
+                        plt.axis("equal")
                         # need this to run through the x and y values and stop if they're within range of an obstacle 
                         #divide path.xlist by the resolution
-                        for ind in range(len(path.xlist)): 
-                            if obmap[int(round((path.xlist[ind]/XY_GRID_RESOLUTION) - minx))][int(round((path.ylist[ind]/XY_GRID_RESOLUTION) - miny))]:
-                                tic=time.perf_counter()
-                                path = hybrid_a_star_planning(start, goal, ox, oy, XY_GRID_RESOLUTION, YAW_GRID_RESOLUTION)
-                                toc=time.perf_counter()
-                                print(f"Path Planner in {toc - tic:0.4f} seconds")
-                                xpath = path.xlist
-                                ypath = path.ylist
-                                yawpath = path.yawlist
-                                directionpath = path.directionlist
-                                for ix, iy, iyaw in zip(xpath, ypath, yawpath):
-                                    plt.cla()
-                                    plt.plot(ox, oy, ".k")
-                                    plt.plot(xpath, ypath, "-r", label="Hybrid A* path")
-                                    plt.grid(True)
-                                    plt.axis("equal")
-                                    plot_car(ix, iy, iyaw)
-                                    plt.pause(0.0001)
-                                print(__file__ + " done!!")
-                                break
+                        # here if path.xlist is empty need a try statement or something
+                        if path == ([], [], []):
+                            path = hybrid_a_star_planning(start, goal, ox, oy, XY_GRID_RESOLUTION, YAW_GRID_RESOLUTION)
+                            xpath = path.xlist
+                            ypath = path.ylist
+                            yawpath = path.yawlist
+                            directionpath = path.directionlist
+                            for ix, iy, iyaw in zip(xpath, ypath, yawpath):
+                                plt.cla()
+                                plt.plot(ox, oy, ".k")
+                                plt.plot(xpath, ypath, "-r", label="Hybrid A* path")
+                                plt.grid(True)
+                                plt.axis("equal")
+                                plot_car(ix, iy, iyaw)
+                                plt.pause(0.0001)
+                            print(__file__ + " done!!")
+                            break
+                        else:
+                            for ind in range(len(path.xlist)): 
+                                if obmap[int(round((path.xlist[ind]/XY_GRID_RESOLUTION) - minx))][int(round((path.ylist[ind]/XY_GRID_RESOLUTION) - miny))]:
+                                    print("replan route")
+                                    tic=time.perf_counter()
+                                    path = hybrid_a_star_planning(start, goal, ox, oy, XY_GRID_RESOLUTION, YAW_GRID_RESOLUTION)
+                                    toc=time.perf_counter()
+                                    print(f"Path Planner in {toc - tic:0.4f} seconds")
+             
+                                    xpath = path.xlist
+                                    ypath = path.ylist
+                                    yawpath = path.yawlist
+                                    directionpath = path.directionlist
+                                    for ix, iy, iyaw in zip(xpath, ypath, yawpath):
+                                        plt.cla()
+                                        plt.plot(ox, oy, ".k")
+                                        plt.plot(xpath, ypath, "-r", label="Hybrid A* path")
+                                        plt.grid(True)
+                                        plt.axis("equal")
+                                        plot_car(ix, iy, iyaw)
+                                        plt.pause(0.0001)
+                                    print(__file__ + " done!!")
+                                    break
+
+
                             #else:
                             #    continue
 
