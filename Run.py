@@ -230,7 +230,7 @@ if __name__ == "__main__":
                         #        yvel = ypath[path_index - 1]
                         #        yaw_set = yawpath[path_index -1]
 
-                        #        #needs to be faster 0.1m every sec is slow as shit
+                        #        #needs to be faster 0.1m every sec is too slow
                         #        pixhawkObj.send_ned_position(xvel, yvel, 0 , 1)
                         #        pixhawkObj.condition_yaw(yaw_set, relative = False)
 
