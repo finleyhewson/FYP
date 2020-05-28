@@ -10,8 +10,8 @@ import time
 class mapper:
     num_coordinate = 3
 
-    xRange = [-4, 4]
-    yRange = [-4, 4]
+    xRange = [-8, 8]
+    yRange = [-8, 8]
     zRange = [-0.5, 0.5]
 
     voxelSize = 0.02
