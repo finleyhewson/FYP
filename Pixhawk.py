@@ -311,7 +311,7 @@ class Pix:
 
     def send_tracking_confidence_to_gcs(self, _conf):
         global current_confidence_level
-        confidence_status_string = 'Tracking confidence: ' + str(_conf)
+        confidence_status_string = 'Tracking confidence: ' + self.pose_data_confidence_level[_conf]
         self.send_msg_to_gcs(confidence_status_string)
 
     def send_msg_to_gcs(self, text_to_be_sent):
