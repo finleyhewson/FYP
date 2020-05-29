@@ -45,11 +45,14 @@ class position:
             
             if  self.pixhawkObj.enable_msg_vision_position_estimate:
                 self.pixhawkObj.send_vision_position_estimate_message(self._pos, self._r, self.current_time_us)
-                
+
+
+            time.sleep(0.01)
+    
+    def conf_loop(self):
+        while self.running:
             if self.pixhawkObj.enable_update_tracking_confidence_to_gcs:    
                 self.pixhawkObj.send_tracking_confidence_to_gcs(self._conf)
-
-
             time.sleep(0.01)
 
     def close(self):

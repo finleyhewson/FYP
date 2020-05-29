@@ -119,8 +119,11 @@ if __name__ == "__main__":
     #Schedules Mavlink Messages in the Background at predetermined frequencies
     sched = BackgroundScheduler()
 
-    if pixhawkObj.enable_msg_vision_position_estimate or pixhawkObj.enable_update_tracking_confidence_to_gcs:
+    if pixhawkObj.enable_msg_vision_position_estimate:
         sched.add_job(posObj.loop, 'interval', seconds = 1/vision_position_estimate_msg_hz)
+    
+    if pixhawkObj.enable_update_tracking_confidence_to_gcs:
+        sched.add_job(posObj.conf_loop, 'interval', seconds = 1/pixhawkObj.update_tracking_confidence_to_gcs_hz_default)
 
 
     # A separate thread to monitor user input
@@ -220,21 +223,6 @@ if __name__ == "__main__":
                         start = [pos[0], pos[1], np.deg2rad(90.0 - yaw_angle[0])]
                         goal = [curr_goal[0], curr_goal[1], np.deg2rad(90.0 - curr_goal[2])] #90 faces to the top, 0 to the right, -90 towards the bottom
 
-                        #if path_index == 0:
-                        #    path_index = path_index + 1
-                        #else:
-                        #    if path_index - 1 >= len(xpath):
-                        #        break
-                        #    else:
-                        #        xvel = xpath[path_index - 1]
-                        #        yvel = ypath[path_index - 1]
-                        #        yaw_set = yawpath[path_index -1]
-
-                        #        #needs to be faster 0.1m every sec is too slow
-                        #        pixhawkObj.send_ned_position(xvel, yvel, 0 , 1)
-                        #        pixhawkObj.condition_yaw(yaw_set, relative = False)
-
-                        #        path_index = path_index + 1
 
                         #initial path calculation loop
                         if s == 0:
