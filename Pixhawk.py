@@ -311,7 +311,7 @@ class Pix:
 
     def send_tracking_confidence_to_gcs(self, _conf):
         global current_confidence_level
-        confidence_status_string = 'Tracking confidence: ' + _conf
+        confidence_status_string = 'Tracking confidence: ' + str(_conf)
         self.send_msg_to_gcs(confidence_status_string)
 
     def send_msg_to_gcs(self, text_to_be_sent):
@@ -428,7 +428,7 @@ class Pix:
 
 
     # Monitor user input from the terminal and perform action accordingly
-    def user_input_monitor(self, scale_calib_enable):
+    def user_input_monitor(self): #, scale_calib_enable):
         global scale_factor
         while True:
             # Specical case: updating scale
