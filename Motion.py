@@ -15,7 +15,7 @@ class motion:
         self.yawpath = yawpath
     
     def loop(self):
-        while self.running:
+        if self.running:
             if self.recalc_path == False:
                 for self.ixpath, self.iypath, self.iyawpath in zip(self.xpath, self.ypath, self.yawpath):
                     if self.recalc_path == True:

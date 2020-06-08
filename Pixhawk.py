@@ -230,6 +230,11 @@ class Pix:
         # send command
         self.vehicle.send_mavlink(msg)
 
+    def setmode(self):
+        self.vehicle.mode = VehicleMode('GUIDED')
+        print("Vehicle mode set to Guided")
+
+
 
     def condition_yaw(self, heading, relative=False):
         """

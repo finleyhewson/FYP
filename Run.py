@@ -110,6 +110,8 @@ if __name__ == "__main__":
         pass
     print("INFO: Vehicle connected.")
     
+    if pixhawkObj.is_vehicle_connected:
+        pixhawkObj.setmode()
 
     d435Obj = d435.rs_d435(framerate=30, width=480, height=270)
     posObj = Position.position(pixhawkObj)
